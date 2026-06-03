@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My星座メーカー</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="app">
+    <section class="workspace" aria-label="星座作成エリア">
+      <aside class="control-panel" aria-label="操作ボタン">
+        <button id="placeModeButton" class="button active" type="button">星を置く</button>
+        <button id="connectModeButton" class="button" type="button">星を結ぶ</button>
+        <button id="openNameButton" class="button" type="button">星座名をつける</button>
+        <button id="resetButton" class="button reset" type="button">リセット</button>
+      </aside>
+
+      <div id="namePanel" class="name-panel is-hidden" aria-live="polite">
+        <input id="constellationNameInput" type="text" placeholder="例：月あかり座">
+        <button id="showNameButton" class="button primary" type="button">星座名を表示</button>
+        <p id="nameMessage" class="message"></p>
+      </div>
+
+      <section class="sky-section" aria-label="夜空キャンバス">
+        <div class="canvas-frame">
+          <canvas id="skyCanvas" width="960" height="620">
+            お使いのブラウザはCanvasに対応していません。
+          </canvas>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
