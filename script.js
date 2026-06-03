@@ -4,6 +4,7 @@ const context = canvas.getContext("2d");
 const placeModeButton = document.getElementById("placeModeButton");
 const connectModeButton = document.getElementById("connectModeButton");
 const openNameButton = document.getElementById("openNameButton");
+const deleteModeButton = document.getElementById("deleteModeButton");
 const namePanel = document.getElementById("namePanel");
 const constellationNameInput = document.getElementById("constellationNameInput");
 const showNameButton = document.getElementById("showNameButton");
@@ -12,6 +13,7 @@ const nameMessage = document.getElementById("nameMessage");
 
 const MODE_PLACE = "place";
 const MODE_CONNECT = "connect";
+const MODE_DELETE = "delete";
 
 let currentMode = MODE_PLACE;
 let stars = [];
@@ -66,6 +68,7 @@ function setMode(mode) {
 
   placeModeButton.classList.toggle("active", currentMode === MODE_PLACE);
   connectModeButton.classList.toggle("active", currentMode === MODE_CONNECT);
+  deleteModeButton.classList.toggle("active", currentMode === MODE_DELETE);
 
   drawSky();
 }
@@ -116,6 +119,73 @@ function findClickedStar(x, y) {
   return null;
 }
 
+function findClickedLine(x, y) {
+  const clickRange = 6;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const fromStar = stars.find(function(star) {
+      return star.id === line.fromId;
+    });
+    const toStar = stars.find(function(star) {
+      return star.id === line.toId;
+    });
+
+    if (!fromStar || !toStar) {
+      continue;
+    }
+
+    const distance = getDistanceFromPointToLineSegment(
+      x,
+      y,
+      fromStar.x,
+      fromStar.y,
+      toStar.x,
+      toStar.y
+    );
+
+    if (distance <= clickRange) {
+      return line;
+    }
+  }
+
+  return null;
+}
+
+function getDistanceFromPointToLineSegment(pointX, pointY, startX, startY, endX, endY) {
+  const lineX = endX - startX;
+  const lineY = endY - startY;
+  const lineLengthSquared = lineX * lineX + lineY * lineY;
+
+  if (lineLengthSquared === 0) {
+    return Math.hypot(pointX - startX, pointY - startY);
+  }
+
+  const pointPosition = ((pointX - startX) * lineX + (pointY - startY) * lineY) / lineLengthSquared;
+  const clampedPosition = Math.max(0, Math.min(1, pointPosition));
+  const closestX = startX + clampedPosition * lineX;
+  const closestY = startY + clampedPosition * lineY;
+
+  return Math.hypot(pointX - closestX, pointY - closestY);
+}
+
+function deleteStar(starId) {
+  stars = stars.filter(function(star) {
+    return star.id !== starId;
+  });
+
+  // 削除した星につながっていた線も一緒に消します。
+  lines = lines.filter(function(line) {
+    return line.fromId !== starId && line.toId !== starId;
+  });
+}
+
+function deleteLine(lineToDelete) {
+  lines = lines.filter(function(line) {
+    return line !== lineToDelete;
+  });
+}
+
 function connectStars(firstStarId, secondStarId) {
   if (firstStarId === secondStarId) {
     return;
@@ -143,6 +213,11 @@ function handleCanvasClick(event) {
     return;
   }
 
+  if (currentMode === MODE_DELETE) {
+    handleDeleteClick(position.x, position.y);
+    return;
+  }
+
   const clickedStar = findClickedStar(position.x, position.y);
 
   if (!clickedStar) {
@@ -157,6 +232,24 @@ function handleCanvasClick(event) {
   } else {
     connectStars(selectedStarId, clickedStar.id);
     selectedStarId = null;
+  }
+
+  drawSky();
+}
+
+function handleDeleteClick(x, y) {
+  const clickedStar = findClickedStar(x, y);
+
+  if (clickedStar) {
+    deleteStar(clickedStar.id);
+    drawSky();
+    return;
+  }
+
+  const clickedLine = findClickedLine(x, y);
+
+  if (clickedLine) {
+    deleteLine(clickedLine);
   }
 
   drawSky();
@@ -294,6 +387,9 @@ placeModeButton.addEventListener("click", function() {
 });
 connectModeButton.addEventListener("click", function() {
   setMode(MODE_CONNECT);
+});
+deleteModeButton.addEventListener("click", function() {
+  setMode(MODE_DELETE);
 });
 openNameButton.addEventListener("click", openNamePanel);
 showNameButton.addEventListener("click", showConstellationName);

@@ -66,6 +66,19 @@ input {
   background: rgba(99, 33, 53, 0.68);
 }
 
+.delete {
+  color: #ffe7e7;
+  border-color: rgba(255, 168, 168, 0.46);
+  background: rgba(104, 38, 61, 0.74);
+}
+
+.delete.active {
+  color: #241014;
+  border-color: #ffb0b0;
+  background: linear-gradient(135deg, #ffd1d1, #ff9a9a);
+  box-shadow: 0 0 22px rgba(255, 141, 141, 0.42);
+}
+
 .name-panel {
   position: fixed;
   top: 50%;
