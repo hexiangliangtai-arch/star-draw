@@ -9,19 +9,7 @@
 <body>
   <main class="app">
     <section class="workspace" aria-label="星座作成エリア">
-      <aside class="control-panel" aria-label="操作ボタン">
-        <button id="placeModeButton" class="button active" type="button">星を置く</button>
-        <button id="connectModeButton" class="button" type="button">星を結ぶ</button>
-        <button id="openNameButton" class="button" type="button">星座名をつける</button>
-        <button id="deleteModeButton" class="button delete" type="button">削除</button>
-        <button id="resetButton" class="button reset" type="button">リセット</button>
-      </aside>
-
-      <div id="namePanel" class="name-panel is-hidden" aria-live="polite">
-        <input id="constellationNameInput" type="text" placeholder="例：月あかり座">
-        <button id="showNameButton" class="button primary" type="button">星座名を表示</button>
-        <p id="nameMessage" class="message"></p>
-      </div>
+      <p id="constellationTitle" class="constellation-title" aria-live="polite"></p>
 
       <section class="sky-section" aria-label="夜空キャンバス">
         <div class="canvas-frame">
@@ -30,6 +18,36 @@
           </canvas>
         </div>
       </section>
+
+      <section id="createPanel" class="create-panel is-hidden" aria-label="作るパネル">
+        <button id="placeModeButton" class="button active" type="button">星を置く</button>
+        <button id="connectModeButton" class="button" type="button">星を結ぶ</button>
+        <button id="deleteModeButton" class="button delete" type="button">削除</button>
+        <button id="resetButton" class="button reset" type="button">リセット</button>
+        <button id="saveButton" class="button" type="button">保存</button>
+      </section>
+
+      <div id="bottomPanel" class="bottom-panel is-hidden">
+        <section id="collectionPanel" class="toolbar-panel is-hidden" aria-label="コレクションパネル">
+          <h2>保存済みコレクション</h2>
+          <div class="collection-section">
+            <p class="group-label">自分の星座</p>
+            <div id="collectionList" class="collection-list"></div>
+          </div>
+        </section>
+      </div>
+
+      <div id="saveNameModal" class="save-name-modal is-hidden" aria-live="polite">
+        <input id="saveNameInput" type="text" placeholder="星座名を入力">
+        <button id="confirmSaveButton" class="button primary" type="button">保存する</button>
+        <button id="cancelSaveButton" class="button" type="button">キャンセル</button>
+        <p id="saveMessage" class="message save-message"></p>
+      </div>
+
+      <nav class="bottom-toolbar" aria-label="下部ツールバー">
+        <button id="toolbarCreateButton" class="toolbar-button" type="button">作る</button>
+        <button id="toolbarCollectionButton" class="toolbar-button" type="button">コレクション</button>
+      </nav>
     </section>
   </main>
 
