@@ -35,6 +35,23 @@
             <div id="collectionList" class="collection-list"></div>
           </div>
         </section>
+
+        <section id="mySkyPanel" class="toolbar-panel is-hidden" aria-label="My夜空パネル">
+          <h2>My夜空モード</h2>
+          <div class="my-sky-mode-actions" aria-label="My夜空操作モード">
+            <button id="mySkyPlaceModeButton" class="button active" type="button">配置</button>
+            <button id="mySkyDeleteModeButton" class="button delete" type="button">削除</button>
+          </div>
+          <div class="collection-section">
+            <p class="group-label">配置する星座</p>
+            <p id="selectedMySkyName" class="selected-my-sky-name">選択中の星座はありません</p>
+            <div id="mySkyConstellationList" class="my-sky-list"></div>
+          </div>
+          <div class="my-sky-actions">
+            <button id="mySkyResetButton" class="button reset" type="button">My夜空リセット</button>
+          </div>
+          <p id="mySkyMessage" class="message my-sky-message"></p>
+        </section>
       </div>
 
       <div id="saveNameModal" class="save-name-modal is-hidden" aria-live="polite">
@@ -47,6 +64,7 @@
       <nav class="bottom-toolbar" aria-label="下部ツールバー">
         <button id="toolbarCreateButton" class="toolbar-button" type="button">作る</button>
         <button id="toolbarCollectionButton" class="toolbar-button" type="button">コレクション</button>
+        <button id="toolbarMySkyButton" class="toolbar-button" type="button">My夜空</button>
       </nav>
     </section>
   </main>

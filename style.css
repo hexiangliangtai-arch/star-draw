@@ -105,7 +105,7 @@ input {
   bottom: 0;
   z-index: 5;
   display: grid;
-  grid-template-columns: minmax(0, 200px) minmax(0, 200px);
+  grid-template-columns: repeat(3, minmax(0, 180px));
   justify-content: center;
   align-content: center;
   gap: 10px;
@@ -239,20 +239,43 @@ input::placeholder {
   font-size: 0.9rem;
 }
 
-.collection-list {
+.collection-list,
+.my-sky-list {
   display: grid;
   gap: 8px;
   max-height: min(26vh, 230px);
   overflow-y: auto;
 }
 
-.empty-collection {
+.empty-collection,
+.empty-my-sky {
   margin: 0;
   color: #cbd7ff;
   line-height: 1.5;
 }
 
+.selected-my-sky-name {
+  margin: 0;
+  color: #ffe9a6;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
 .collection-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  padding: 10px;
+  border: 1px solid rgba(184, 208, 255, 0.24);
+  border-radius: 8px;
+  color: #eef4ff;
+  text-align: left;
+  background: rgba(37, 52, 91, 0.58);
+}
+
+.my-sky-select-button {
   display: grid;
   gap: 3px;
   width: 100%;
@@ -265,18 +288,95 @@ input::placeholder {
   cursor: pointer;
 }
 
+.my-sky-select-button:hover {
+  border-color: rgba(239, 220, 153, 0.72);
+  background: rgba(51, 70, 118, 0.78);
+}
+
+.my-sky-select-button.active {
+  color: #101624;
+  border-color: #f4dc8f;
+  background: linear-gradient(135deg, #fff6bf, #9fcbff);
+  box-shadow: 0 0 18px rgba(176, 210, 255, 0.3);
+}
+
+.my-sky-mode-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.my-sky-mode-actions .button {
+  min-width: 96px;
+}
+
+.my-sky-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(194, 213, 255, 0.18);
+}
+
+.my-sky-message {
+  font-size: 0.9rem;
+}
+
 .collection-item:hover {
   border-color: rgba(239, 220, 153, 0.72);
   background: rgba(51, 70, 118, 0.78);
 }
 
+.collection-info {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
 .collection-name {
   font-weight: 700;
+  overflow-wrap: anywhere;
 }
 
 .collection-date {
   color: #b8c9f8;
   font-size: 0.78rem;
+}
+
+.collection-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.collection-load-button,
+.collection-delete-button {
+  min-height: 34px;
+  padding: 7px 10px;
+  border: 1px solid rgba(184, 208, 255, 0.34);
+  border-radius: 8px;
+  color: #eef4ff;
+  background: rgba(37, 52, 91, 0.72);
+  cursor: pointer;
+}
+
+.collection-load-button:hover {
+  border-color: rgba(239, 220, 153, 0.72);
+  background: rgba(51, 70, 118, 0.86);
+}
+
+.collection-delete-button {
+  color: #ffe7e7;
+  border-color: rgba(255, 168, 168, 0.46);
+  background: rgba(104, 38, 61, 0.74);
+}
+
+.collection-delete-button:hover {
+  border-color: rgba(255, 176, 176, 0.82);
+  background: rgba(130, 48, 73, 0.86);
 }
 
 .canvas-frame {
@@ -342,7 +442,26 @@ canvas {
     grid-template-columns: 1fr;
   }
 
-  .collection-list {
+  .collection-list,
+  .my-sky-list {
     max-height: 26vh;
+  }
+
+  .collection-item {
+    grid-template-columns: 1fr;
+  }
+
+  .collection-actions {
+    justify-content: stretch;
+  }
+
+  .collection-load-button,
+  .collection-delete-button {
+    flex: 1;
+  }
+
+  .my-sky-mode-actions .button,
+  .my-sky-actions .button {
+    flex: 1;
   }
 }

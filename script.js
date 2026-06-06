@@ -4,9 +4,11 @@ const context = canvas.getContext("2d");
 const bottomToolbar = document.querySelector(".bottom-toolbar");
 const toolbarCreateButton = document.getElementById("toolbarCreateButton");
 const toolbarCollectionButton = document.getElementById("toolbarCollectionButton");
+const toolbarMySkyButton = document.getElementById("toolbarMySkyButton");
 const bottomPanel = document.getElementById("bottomPanel");
 const createPanel = document.getElementById("createPanel");
 const collectionPanel = document.getElementById("collectionPanel");
+const mySkyPanel = document.getElementById("mySkyPanel");
 const placeModeButton = document.getElementById("placeModeButton");
 const connectModeButton = document.getElementById("connectModeButton");
 const deleteModeButton = document.getElementById("deleteModeButton");
@@ -18,20 +20,36 @@ const cancelSaveButton = document.getElementById("cancelSaveButton");
 const resetButton = document.getElementById("resetButton");
 const saveMessage = document.getElementById("saveMessage");
 const collectionList = document.getElementById("collectionList");
+const mySkyConstellationList = document.getElementById("mySkyConstellationList");
+const selectedMySkyName = document.getElementById("selectedMySkyName");
+const mySkyMessage = document.getElementById("mySkyMessage");
+const mySkyPlaceModeButton = document.getElementById("mySkyPlaceModeButton");
+const mySkyDeleteModeButton = document.getElementById("mySkyDeleteModeButton");
+const mySkyResetButton = document.getElementById("mySkyResetButton");
 const constellationTitle = document.getElementById("constellationTitle");
 
+const APP_MODE_CREATE = "create";
+const APP_MODE_COLLECTION = "collection";
+const APP_MODE_MY_SKY = "mySky";
 const MODE_PLACE = "place";
 const MODE_CONNECT = "connect";
 const MODE_DELETE = "delete";
+const MY_SKY_MODE_PLACE = "place";
+const MY_SKY_MODE_DELETE = "delete";
 const STORAGE_KEY = "myNightSkyCollections";
 
+let appMode = APP_MODE_CREATE;
 let currentMode = MODE_PLACE;
+let mySkyMode = MY_SKY_MODE_PLACE;
 let stars = [];
 let lines = [];
 let selectedStarId = null;
 let constellationName = "";
 let nextStarId = 1;
 let activePanel = null;
+let selectedConstellationForMySky = null;
+let placedConstellations = [];
+let nextPlacedConstellationId = 1;
 
 let backgroundStars = [];
 
@@ -45,13 +63,18 @@ function resizeCanvasToWindow() {
   canvas.height = skyHeight;
 
   // 画面サイズが変わっても、配置済みの星は同じ比率の位置に残します。
-  if (previousWidth > 0 && previousHeight > 0 && stars.length > 0) {
+  if (previousWidth > 0 && previousHeight > 0 && (stars.length > 0 || placedConstellations.length > 0)) {
     const scaleX = canvas.width / previousWidth;
     const scaleY = canvas.height / previousHeight;
 
     stars.forEach(function(star) {
       star.x = star.x * scaleX;
       star.y = star.y * scaleY;
+    });
+
+    placedConstellations.forEach(function(placedConstellation) {
+      placedConstellation.x = placedConstellation.x * scaleX;
+      placedConstellation.y = placedConstellation.y * scaleY;
     });
   }
 
@@ -76,6 +99,7 @@ function createBackgroundStars(count) {
 }
 
 function setMode(mode) {
+  appMode = APP_MODE_CREATE;
   currentMode = mode;
   selectedStarId = null;
 
@@ -87,7 +111,25 @@ function setMode(mode) {
 }
 
 function updateConstellationTitle() {
-  constellationTitle.textContent = constellationName;
+  constellationTitle.textContent = appMode === APP_MODE_CREATE ? constellationName : "";
+}
+
+function setMySkyMode(mode) {
+  mySkyMode = mode;
+
+  mySkyPlaceModeButton.classList.toggle("active", mySkyMode === MY_SKY_MODE_PLACE);
+  mySkyDeleteModeButton.classList.toggle("active", mySkyMode === MY_SKY_MODE_DELETE);
+
+  if (mySkyMode === MY_SKY_MODE_DELETE) {
+    showMySkyMessage("削除したい星座をクリックしてください");
+    return;
+  }
+
+  if (selectedConstellationForMySky) {
+    showMySkyMessage("夜空をクリックして配置できます");
+  } else {
+    showMySkyMessage("配置する星座を選んでください");
+  }
 }
 
 function closeSaveNameArea() {
@@ -108,12 +150,16 @@ function openSaveNameArea() {
 }
 
 function closeAllPanels() {
+  appMode = APP_MODE_CREATE;
+  selectedStarId = null;
   activePanel = null;
   bottomPanel.classList.add("is-hidden");
   createPanel.classList.add("is-hidden");
   collectionPanel.classList.add("is-hidden");
+  mySkyPanel.classList.add("is-hidden");
   toolbarCreateButton.classList.remove("active");
   toolbarCollectionButton.classList.remove("active");
+  toolbarMySkyButton.classList.remove("active");
 }
 
 function openToolbarPanel(panelName) {
@@ -123,30 +169,48 @@ function openToolbarPanel(panelName) {
     closeAllPanels();
 
     if (!shouldCloseCreatePanel) {
+      appMode = APP_MODE_CREATE;
+      selectedStarId = null;
       activePanel = "create";
       createPanel.classList.remove("is-hidden");
       toolbarCreateButton.classList.add("active");
     }
 
+    drawSky();
     return;
   }
 
   if (activePanel === panelName) {
     closeAllPanels();
+    drawSky();
     return;
   }
 
   activePanel = panelName;
+  selectedStarId = null;
   bottomPanel.classList.remove("is-hidden");
   createPanel.classList.toggle("is-hidden", panelName !== "create");
   collectionPanel.classList.toggle("is-hidden", panelName !== "collection");
+  mySkyPanel.classList.toggle("is-hidden", panelName !== "mySky");
   toolbarCreateButton.classList.toggle("active", panelName === "create");
   toolbarCollectionButton.classList.toggle("active", panelName === "collection");
+  toolbarMySkyButton.classList.toggle("active", panelName === "mySky");
 
   if (panelName === "collection") {
+    appMode = APP_MODE_COLLECTION;
     closeSaveNameArea();
     renderCollectionList();
   }
+
+  if (panelName === "mySky") {
+    appMode = APP_MODE_MY_SKY;
+    closeSaveNameArea();
+    setMySkyMode(MY_SKY_MODE_PLACE);
+    renderMySkyConstellationList();
+    updateMySkySelectedName();
+  }
+
+  drawSky();
 }
 
 function getCanvasPosition(event) {
@@ -352,6 +416,7 @@ function saveCurrentConstellation() {
   updateConstellationTitle();
   drawSky();
   renderCollectionList();
+  renderMySkyConstellationList();
   showSaveMessage("保存しました");
 }
 
@@ -383,9 +448,11 @@ function renderCollectionList() {
   }
 
   collections.slice().reverse().forEach(function(savedConstellation) {
-    const itemButton = document.createElement("button");
-    itemButton.className = "collection-item";
-    itemButton.type = "button";
+    const item = document.createElement("div");
+    item.className = "collection-item";
+
+    const info = document.createElement("div");
+    info.className = "collection-info";
 
     const nameText = document.createElement("span");
     nameText.className = "collection-name";
@@ -395,20 +462,189 @@ function renderCollectionList() {
     dateText.className = "collection-date";
     dateText.textContent = formatSavedDate(savedConstellation.savedAt);
 
-    itemButton.appendChild(nameText);
-    itemButton.appendChild(dateText);
-    itemButton.addEventListener("click", function() {
+    const actions = document.createElement("div");
+    actions.className = "collection-actions";
+
+    const loadButton = document.createElement("button");
+    loadButton.className = "collection-load-button";
+    loadButton.type = "button";
+    loadButton.textContent = "読み込む";
+    loadButton.addEventListener("click", function() {
       loadConstellation(savedConstellation);
     });
 
-    collectionList.appendChild(itemButton);
+    const deleteButton = document.createElement("button");
+    deleteButton.className = "collection-delete-button";
+    deleteButton.type = "button";
+    deleteButton.textContent = "削除";
+    deleteButton.addEventListener("click", function() {
+      confirmDeleteSavedConstellation(savedConstellation);
+    });
+
+    info.appendChild(nameText);
+    info.appendChild(dateText);
+    actions.appendChild(loadButton);
+    actions.appendChild(deleteButton);
+    item.appendChild(info);
+    item.appendChild(actions);
+    collectionList.appendChild(item);
   });
+}
+
+function showMySkyMessage(message) {
+  mySkyMessage.textContent = message;
+}
+
+function updateMySkySelectedName() {
+  if (!selectedConstellationForMySky) {
+    selectedMySkyName.textContent = "選択中の星座はありません";
+    return;
+  }
+
+  selectedMySkyName.textContent = "選択中: " + selectedConstellationForMySky.name;
+}
+
+function renderMySkyConstellationList() {
+  const collections = getSavedCollections();
+  mySkyConstellationList.innerHTML = "";
+
+  if (collections.length === 0) {
+    const emptyMessage = document.createElement("p");
+    emptyMessage.className = "empty-my-sky";
+    emptyMessage.textContent = "保存済みの星座はまだありません";
+    mySkyConstellationList.appendChild(emptyMessage);
+    return;
+  }
+
+  collections.slice().reverse().forEach(function(savedConstellation) {
+    const selectButton = document.createElement("button");
+    const savedName = savedConstellation.name || "名前のない星座";
+    selectButton.className = "my-sky-select-button";
+    selectButton.type = "button";
+    selectButton.classList.toggle(
+      "active",
+      selectedConstellationForMySky !== null && selectedConstellationForMySky.sourceId === savedConstellation.id
+    );
+
+    const nameText = document.createElement("span");
+    nameText.className = "collection-name";
+    nameText.textContent = savedName;
+
+    const dateText = document.createElement("span");
+    dateText.className = "collection-date";
+    dateText.textContent = formatSavedDate(savedConstellation.savedAt);
+
+    selectButton.appendChild(nameText);
+    selectButton.appendChild(dateText);
+    selectButton.addEventListener("click", function() {
+      selectConstellationForMySky(savedConstellation);
+    });
+
+    mySkyConstellationList.appendChild(selectButton);
+  });
+}
+
+function selectConstellationForMySky(savedConstellation) {
+  const copiedStars = copyStars(Array.isArray(savedConstellation.stars) ? savedConstellation.stars : []);
+
+  if (copiedStars.length === 0) {
+    showMySkyMessage("星がない星座は配置できません");
+    return;
+  }
+
+  selectedConstellationForMySky = {
+    sourceId: savedConstellation.id,
+    name: savedConstellation.name || "名前のない星座",
+    stars: copiedStars,
+    lines: copyLines(Array.isArray(savedConstellation.lines) ? savedConstellation.lines : [])
+  };
+
+  updateMySkySelectedName();
+  renderMySkyConstellationList();
+  setMySkyMode(MY_SKY_MODE_PLACE);
+}
+
+function placeSelectedConstellationOnMySky(x, y) {
+  if (!selectedConstellationForMySky) {
+    showMySkyMessage("配置する星座を選んでください");
+    return;
+  }
+
+  placedConstellations.push({
+    id: nextPlacedConstellationId,
+    sourceId: selectedConstellationForMySky.sourceId,
+    name: selectedConstellationForMySky.name,
+    x: x,
+    y: y,
+    stars: copyStars(selectedConstellationForMySky.stars),
+    lines: copyLines(selectedConstellationForMySky.lines)
+  });
+
+  nextPlacedConstellationId++;
+  showMySkyMessage("配置しました");
+  drawSky();
+}
+
+function deletePlacedConstellation(placedConstellationId) {
+  placedConstellations = placedConstellations.filter(function(placedConstellation) {
+    return placedConstellation.id !== placedConstellationId;
+  });
+}
+
+function handlePlacedConstellationDeleteClick(x, y) {
+  const clickedConstellation = findClickedPlacedConstellation(x, y);
+
+  if (!clickedConstellation) {
+    showMySkyMessage("削除する星座が見つかりませんでした");
+    return;
+  }
+
+  deletePlacedConstellation(clickedConstellation.id);
+  showMySkyMessage("削除しました");
+  drawSky();
+}
+
+function resetMySky() {
+  if (placedConstellations.length === 0) {
+    showMySkyMessage("配置済みの星座はありません");
+    return;
+  }
+
+  if (!confirm("My夜空に配置した星座をすべて削除しますか？")) {
+    return;
+  }
+
+  placedConstellations = [];
+  nextPlacedConstellationId = 1;
+  showMySkyMessage("My夜空をリセットしました");
+  drawSky();
+}
+
+function confirmDeleteSavedConstellation(savedConstellation) {
+  const name = savedConstellation.name || "名前のない星座";
+
+  if (!confirm("『" + name + "』をコレクションから削除しますか？")) {
+    return;
+  }
+
+  deleteSavedConstellation(savedConstellation.id);
+}
+
+function deleteSavedConstellation(savedConstellationId) {
+  const collections = getSavedCollections();
+  const updatedCollections = collections.filter(function(savedConstellation) {
+    return savedConstellation.id !== savedConstellationId;
+  });
+
+  saveCollections(updatedCollections);
+  renderCollectionList();
+  renderMySkyConstellationList();
 }
 
 function loadConstellation(savedConstellation) {
   const hasCurrentWork = stars.length > 0 || lines.length > 0 || constellationName !== "";
 
-  if (hasCurrentWork && !confirm("現在の星空が置き換わります。読み込みますか？")) {
+  if (hasCurrentWork && !confirm("現在の星空が『" + (savedConstellation.name || "名前のない星座") + "』に置き換わります。読み込みますか？")) {
     return;
   }
 
@@ -452,17 +688,31 @@ function connectStars(firstStarId, secondStarId) {
 function handleCanvasClick(event) {
   const position = getCanvasPosition(event);
 
+  if (appMode === APP_MODE_CREATE) {
+    handleCreateCanvasClick(position.x, position.y);
+    return;
+  }
+
+  if (appMode === APP_MODE_MY_SKY) {
+    handleMySkyCanvasClick(position.x, position.y);
+    return;
+  }
+
+  return;
+}
+
+function handleCreateCanvasClick(x, y) {
   if (currentMode === MODE_PLACE) {
-    addStar(position.x, position.y);
+    addStar(x, y);
     return;
   }
 
   if (currentMode === MODE_DELETE) {
-    handleDeleteClick(position.x, position.y);
+    handleDeleteClick(x, y);
     return;
   }
 
-  const clickedStar = findClickedStar(position.x, position.y);
+  const clickedStar = findClickedStar(x, y);
 
   if (!clickedStar) {
     selectedStarId = null;
@@ -479,6 +729,15 @@ function handleCanvasClick(event) {
   }
 
   drawSky();
+}
+
+function handleMySkyCanvasClick(x, y) {
+  if (mySkyMode === MY_SKY_MODE_DELETE) {
+    handlePlacedConstellationDeleteClick(x, y);
+    return;
+  }
+
+  placeSelectedConstellationOnMySky(x, y);
 }
 
 function handleDeleteClick(x, y) {
@@ -514,8 +773,15 @@ function resetSky() {
 
 function drawSky() {
   drawNightBackground();
-  drawConstellationLines();
-  drawUserStars();
+
+  if (appMode === APP_MODE_CREATE) {
+    drawEditingConstellation();
+  }
+
+  if (appMode === APP_MODE_MY_SKY) {
+    drawMySky();
+  }
+
   drawConstellationName();
 }
 
@@ -542,6 +808,56 @@ function drawNightBackground() {
   });
 }
 
+function drawLine(fromStar, toStar, options) {
+  const lineColor = options && options.color ? options.color : "rgba(194, 225, 255, 0.68)";
+  const glowColor = options && options.glowColor ? options.glowColor : "rgba(136, 203, 255, 0.86)";
+  const lineWidth = options && options.width ? options.width : 2;
+
+  context.beginPath();
+  context.moveTo(fromStar.x, fromStar.y);
+  context.lineTo(toStar.x, toStar.y);
+  context.strokeStyle = lineColor;
+  context.lineWidth = lineWidth;
+  context.shadowColor = glowColor;
+  context.shadowBlur = 10;
+  context.stroke();
+  context.shadowBlur = 0;
+}
+
+function drawStar(star, options) {
+  const isSelected = Boolean(options && options.isSelected);
+  const starColor = options && options.starColor ? options.starColor : "#fffdf1";
+  const selectedColor = options && options.selectedColor ? options.selectedColor : "#fff8c9";
+  const glowColor = options && options.glowColor ? options.glowColor : "255, 246, 181";
+  const shadowColor = options && options.shadowColor ? options.shadowColor : "#cfe5ff";
+  const selectedShadowColor = options && options.selectedShadowColor ? options.selectedShadowColor : "#fff1a3";
+  const radius = isSelected ? star.radius + 3 : star.radius;
+  const glowSize = isSelected ? 28 : 18;
+
+  const glow = context.createRadialGradient(star.x, star.y, 1, star.x, star.y, glowSize);
+  glow.addColorStop(0, "rgba(" + glowColor + ", 0.95)");
+  glow.addColorStop(0.35, "rgba(" + glowColor + ", 0.45)");
+  glow.addColorStop(1, "rgba(" + glowColor + ", 0)");
+
+  context.beginPath();
+  context.arc(star.x, star.y, glowSize, 0, Math.PI * 2);
+  context.fillStyle = glow;
+  context.fill();
+
+  context.beginPath();
+  context.arc(star.x, star.y, radius, 0, Math.PI * 2);
+  context.fillStyle = isSelected ? selectedColor : starColor;
+  context.shadowColor = isSelected ? selectedShadowColor : shadowColor;
+  context.shadowBlur = isSelected ? 18 : 12;
+  context.fill();
+  context.shadowBlur = 0;
+}
+
+function drawEditingConstellation() {
+  drawConstellationLines();
+  drawUserStars();
+}
+
 function drawConstellationLines() {
   lines.forEach(function(line) {
     const fromStar = stars.find(function(star) {
@@ -555,42 +871,135 @@ function drawConstellationLines() {
       return;
     }
 
-    context.beginPath();
-    context.moveTo(fromStar.x, fromStar.y);
-    context.lineTo(toStar.x, toStar.y);
-    context.strokeStyle = "rgba(194, 225, 255, 0.68)";
-    context.lineWidth = 2;
-    context.shadowColor = "rgba(136, 203, 255, 0.86)";
-    context.shadowBlur = 10;
-    context.stroke();
-    context.shadowBlur = 0;
+    drawLine(fromStar, toStar);
   });
 }
 
 function drawUserStars() {
   stars.forEach(function(star) {
-    const isSelected = star.id === selectedStarId;
-    const radius = isSelected ? star.radius + 3 : star.radius;
-    const glowSize = isSelected ? 28 : 18;
-
-    const glow = context.createRadialGradient(star.x, star.y, 1, star.x, star.y, glowSize);
-    glow.addColorStop(0, "rgba(255, 246, 181, 0.95)");
-    glow.addColorStop(0.35, "rgba(255, 246, 181, 0.45)");
-    glow.addColorStop(1, "rgba(255, 246, 181, 0)");
-
-    context.beginPath();
-    context.arc(star.x, star.y, glowSize, 0, Math.PI * 2);
-    context.fillStyle = glow;
-    context.fill();
-
-    context.beginPath();
-    context.arc(star.x, star.y, radius, 0, Math.PI * 2);
-    context.fillStyle = isSelected ? "#fff8c9" : "#fffdf1";
-    context.shadowColor = isSelected ? "#fff1a3" : "#cfe5ff";
-    context.shadowBlur = isSelected ? 18 : 12;
-    context.fill();
-    context.shadowBlur = 0;
+    drawStar(star, {
+      isSelected: star.id === selectedStarId
+    });
   });
+}
+
+function drawMySky() {
+  placedConstellations.forEach(function(placedConstellation) {
+    drawPlacedConstellation(placedConstellation);
+  });
+}
+
+function drawPlacedConstellation(placedConstellation) {
+  const placedStars = getPlacedConstellationStars(placedConstellation);
+
+  placedConstellation.lines.forEach(function(line) {
+    const fromStar = placedStars.find(function(star) {
+      return star.id === line.fromId;
+    });
+    const toStar = placedStars.find(function(star) {
+      return star.id === line.toId;
+    });
+
+    if (!fromStar || !toStar) {
+      return;
+    }
+
+    drawLine(fromStar, toStar, {
+      color: "rgba(178, 220, 255, 0.5)",
+      glowColor: "rgba(116, 191, 255, 0.62)",
+      width: 1.7
+    });
+  });
+
+  placedStars.forEach(function(star) {
+    drawStar(star, {
+      starColor: "#f7fbff",
+      glowColor: "218, 236, 255",
+      shadowColor: "#b8dcff"
+    });
+  });
+}
+
+function getPlacedConstellationStars(placedConstellation) {
+  const center = getConstellationCenter(placedConstellation.stars);
+
+  return placedConstellation.stars.map(function(star) {
+    return {
+      id: star.id,
+      x: placedConstellation.x + (star.x - center.x),
+      y: placedConstellation.y + (star.y - center.y),
+      radius: star.radius
+    };
+  });
+}
+
+function findClickedPlacedConstellation(x, y) {
+  const starClickRange = 12;
+  const lineClickRange = 8;
+
+  for (let i = placedConstellations.length - 1; i >= 0; i--) {
+    const placedConstellation = placedConstellations[i];
+    const placedStars = getPlacedConstellationStars(placedConstellation);
+    const clickedStar = placedStars.find(function(star) {
+      return Math.hypot(star.x - x, star.y - y) <= starClickRange;
+    });
+
+    if (clickedStar) {
+      return placedConstellation;
+    }
+
+    const clickedLine = placedConstellation.lines.some(function(line) {
+      const fromStar = placedStars.find(function(star) {
+        return star.id === line.fromId;
+      });
+      const toStar = placedStars.find(function(star) {
+        return star.id === line.toId;
+      });
+
+      if (!fromStar || !toStar) {
+        return false;
+      }
+
+      return getDistanceFromPointToLineSegment(
+        x,
+        y,
+        fromStar.x,
+        fromStar.y,
+        toStar.x,
+        toStar.y
+      ) <= lineClickRange;
+    });
+
+    if (clickedLine) {
+      return placedConstellation;
+    }
+  }
+
+  return null;
+}
+
+function getConstellationCenter(starList) {
+  if (starList.length === 0) {
+    return {
+      x: 0,
+      y: 0
+    };
+  }
+
+  const total = starList.reduce(function(sum, star) {
+    return {
+      x: sum.x + star.x,
+      y: sum.y + star.y
+    };
+  }, {
+    x: 0,
+    y: 0
+  });
+
+  return {
+    x: total.x / starList.length,
+    y: total.y / starList.length
+  };
 }
 
 function drawConstellationName() {
@@ -604,6 +1013,9 @@ toolbarCreateButton.addEventListener("click", function() {
 toolbarCollectionButton.addEventListener("click", function() {
   openToolbarPanel("collection");
 });
+toolbarMySkyButton.addEventListener("click", function() {
+  openToolbarPanel("mySky");
+});
 placeModeButton.addEventListener("click", function() {
   setMode(MODE_PLACE);
 });
@@ -613,6 +1025,12 @@ connectModeButton.addEventListener("click", function() {
 deleteModeButton.addEventListener("click", function() {
   setMode(MODE_DELETE);
 });
+mySkyPlaceModeButton.addEventListener("click", function() {
+  setMySkyMode(MY_SKY_MODE_PLACE);
+});
+mySkyDeleteModeButton.addEventListener("click", function() {
+  setMySkyMode(MY_SKY_MODE_DELETE);
+});
 saveButton.addEventListener("click", openSaveNameArea);
 confirmSaveButton.addEventListener("click", saveCurrentConstellation);
 cancelSaveButton.addEventListener("click", function() {
@@ -621,7 +1039,10 @@ cancelSaveButton.addEventListener("click", function() {
   closeSaveNameArea();
 });
 resetButton.addEventListener("click", resetSky);
+mySkyResetButton.addEventListener("click", resetMySky);
 window.addEventListener("resize", resizeCanvasToWindow);
 
 resizeCanvasToWindow();
 renderCollectionList();
+renderMySkyConstellationList();
+updateMySkySelectedName();
