@@ -1,6 +1,7 @@
 const canvas = document.getElementById("skyCanvas");
 const context = canvas.getContext("2d");
 
+const workspace = document.querySelector(".workspace");
 const bottomToolbar = document.querySelector(".bottom-toolbar");
 const toolbarCreateButton = document.getElementById("toolbarCreateButton");
 const toolbarCollectionButton = document.getElementById("toolbarCollectionButton");
@@ -120,6 +121,7 @@ function createBackgroundStars(count) {
 
 function setMode(mode) {
   appMode = APP_MODE_CREATE;
+  setCollectionScreenActive(false);
   clearMySkyDragState();
   currentMode = mode;
   selectedStarId = null;
@@ -266,12 +268,17 @@ function closeAllPanels() {
 function closePanelsOnly() {
   activePanel = null;
   hideFloatingScaleControls();
+  setCollectionScreenActive(false);
   bottomPanel.classList.add("is-hidden");
   createPanel.classList.add("is-hidden");
   collectionPanel.classList.add("is-hidden");
   mySkyPanel.classList.add("is-hidden");
   updateToolbarActiveState();
   updateCanvasCursorState();
+}
+
+function setCollectionScreenActive(isActive) {
+  workspace.classList.toggle("is-collection-mode", isActive);
 }
 
 function updateToolbarActiveState() {
@@ -300,6 +307,7 @@ function openToolbarPanel(panelName) {
 function openCreatePanel() {
   if (activePanel === "create") {
     appMode = APP_MODE_CREATE;
+    setCollectionScreenActive(false);
     selectedStarId = null;
     clearMySkyDragState();
     closePanelsOnly();
@@ -309,6 +317,7 @@ function openCreatePanel() {
   }
 
   appMode = APP_MODE_CREATE;
+  setCollectionScreenActive(false);
   selectedStarId = null;
   selectedPlacedConstellationId = null;
   updatePlacedConstellationControls();
@@ -326,15 +335,23 @@ function openCreatePanel() {
 
 function toggleCollectionPanel() {
   if (activePanel === "collection") {
-    closePanelsOnly();
-    drawSky();
+    appMode = APP_MODE_COLLECTION;
+    setCollectionScreenActive(true);
+    renderCollectionList();
+    updateToolbarActiveState();
+    updateCanvasCursorState();
     return;
   }
 
+  appMode = APP_MODE_COLLECTION;
   selectedStarId = null;
+  selectedPlacedConstellationId = null;
+  updatePlacedConstellationControls();
   clearMySkyDragState();
+  hideFloatingScaleControls();
   activePanel = "collection";
-  bottomPanel.classList.remove("is-hidden");
+  setCollectionScreenActive(true);
+  bottomPanel.classList.add("is-hidden");
   createPanel.classList.add("is-hidden");
   collectionPanel.classList.remove("is-hidden");
   mySkyPanel.classList.add("is-hidden");
@@ -347,6 +364,7 @@ function toggleCollectionPanel() {
 
 function toggleMySkyPanel() {
   hideFloatingScaleControls();
+  setCollectionScreenActive(false);
 
   if (appMode !== APP_MODE_MY_SKY) {
     appMode = APP_MODE_MY_SKY;
@@ -380,6 +398,7 @@ function toggleMySkyPanel() {
 }
 
 function showMySkyPanelForPlacedSelection() {
+  setCollectionScreenActive(false);
   activePanel = "mySky";
   bottomPanel.classList.remove("is-hidden");
   createPanel.classList.add("is-hidden");
@@ -619,27 +638,55 @@ function renderCollectionList() {
   collectionList.innerHTML = "";
 
   if (collections.length === 0) {
-    const emptyMessage = document.createElement("p");
+    const emptyMessage = document.createElement("div");
     emptyMessage.className = "empty-collection";
-    emptyMessage.textContent = "保存済みの星座はまだありません";
+    const emptyTitle = document.createElement("p");
+    const emptyText = document.createElement("p");
+
+    emptyTitle.className = "empty-collection-title";
+    emptyTitle.textContent = "まだ保存された星座はありません";
+    emptyText.textContent = "作るモードで星座を作り、保存するとここに並びます";
+
+    emptyMessage.appendChild(emptyTitle);
+    emptyMessage.appendChild(emptyText);
     collectionList.appendChild(emptyMessage);
     return;
   }
 
-  collections.slice().reverse().forEach(function(savedConstellation) {
-    const item = document.createElement("div");
-    item.className = "collection-item";
+  const previewCanvases = [];
+  const fragment = document.createDocumentFragment();
+
+  collections.slice().reverse().forEach(function(savedConstellation, index) {
+    const card = document.createElement("article");
+    const savedName = savedConstellation.name || "名前のない星座";
+    const savedStars = Array.isArray(savedConstellation.stars) ? savedConstellation.stars : [];
+    const savedLines = Array.isArray(savedConstellation.lines) ? savedConstellation.lines : [];
+    card.className = "collection-card";
+
+    const cardNumber = document.createElement("p");
+    cardNumber.className = "collection-number";
+    cardNumber.textContent = "No." + String(index + 1).padStart(3, "0");
+
+    const preview = document.createElement("canvas");
+    preview.className = "collection-preview";
+    preview.width = 360;
+    preview.height = 240;
+    preview.setAttribute("aria-label", savedName + "のプレビュー");
 
     const info = document.createElement("div");
     info.className = "collection-info";
 
-    const nameText = document.createElement("span");
+    const nameText = document.createElement("h2");
     nameText.className = "collection-name";
-    nameText.textContent = savedConstellation.name || "名前のない星座";
+    nameText.textContent = savedName;
+
+    const stats = document.createElement("p");
+    stats.className = "collection-stats";
+    stats.textContent = "星 " + savedStars.length + " / 線 " + savedLines.length;
 
     const dateText = document.createElement("span");
     dateText.className = "collection-date";
-    dateText.textContent = formatSavedDate(savedConstellation.savedAt);
+    const formattedDate = formatSavedDate(savedConstellation.savedAt);
 
     const actions = document.createElement("div");
     actions.className = "collection-actions";
@@ -660,13 +707,186 @@ function renderCollectionList() {
       confirmDeleteSavedConstellation(savedConstellation);
     });
 
+    if (formattedDate !== "") {
+      dateText.textContent = "保存 " + formattedDate;
+    }
+
     info.appendChild(nameText);
-    info.appendChild(dateText);
+    info.appendChild(stats);
+    if (formattedDate !== "") {
+      info.appendChild(dateText);
+    }
     actions.appendChild(loadButton);
     actions.appendChild(deleteButton);
-    item.appendChild(info);
-    item.appendChild(actions);
-    collectionList.appendChild(item);
+    card.appendChild(cardNumber);
+    card.appendChild(preview);
+    card.appendChild(info);
+    card.appendChild(actions);
+    fragment.appendChild(card);
+    previewCanvases.push({
+      canvas: preview,
+      constellation: savedConstellation
+    });
+  });
+
+  collectionList.appendChild(fragment);
+
+  previewCanvases.forEach(function(previewItem) {
+    drawCollectionPreview(previewItem.canvas, previewItem.constellation);
+  });
+}
+
+function drawCollectionPreview(previewCanvas, constellation) {
+  const previewContext = previewCanvas.getContext("2d");
+  const width = previewCanvas.width;
+  const height = previewCanvas.height;
+  const previewStars = getPreviewStarPositions(constellation, width, height);
+  const previewLines = copyLines(Array.isArray(constellation.lines) ? constellation.lines : []);
+
+  drawPreviewBackground(previewContext, width, height);
+  drawPreviewLines(previewContext, previewLines, previewStars);
+  drawPreviewStars(previewContext, previewStars);
+}
+
+function getPreviewStarPositions(constellation, previewWidth, previewHeight) {
+  const sourceStars = copyStars(Array.isArray(constellation.stars) ? constellation.stars : []);
+  const margin = 28;
+  const centerX = previewWidth / 2;
+  const centerY = previewHeight / 2;
+
+  if (sourceStars.length === 0) {
+    return [];
+  }
+
+  if (sourceStars.length === 1) {
+    return [{
+      id: sourceStars[0].id,
+      x: centerX,
+      y: centerY,
+      radius: 5
+    }];
+  }
+
+  const bounds = sourceStars.reduce(function(currentBounds, star) {
+    return {
+      minX: Math.min(currentBounds.minX, star.x),
+      maxX: Math.max(currentBounds.maxX, star.x),
+      minY: Math.min(currentBounds.minY, star.y),
+      maxY: Math.max(currentBounds.maxY, star.y)
+    };
+  }, {
+    minX: sourceStars[0].x,
+    maxX: sourceStars[0].x,
+    minY: sourceStars[0].y,
+    maxY: sourceStars[0].y
+  });
+
+  const constellationWidth = bounds.maxX - bounds.minX;
+  const constellationHeight = bounds.maxY - bounds.minY;
+
+  if (constellationWidth < 1 && constellationHeight < 1) {
+    return sourceStars.map(function(star, index) {
+      return {
+        id: star.id,
+        x: centerX + (index - (sourceStars.length - 1) / 2) * 12,
+        y: centerY,
+        radius: 5
+      };
+    });
+  }
+
+  const safeWidth = Math.max(constellationWidth, 1);
+  const safeHeight = Math.max(constellationHeight, 1);
+  const scaleX = (previewWidth - margin * 2) / safeWidth;
+  const scaleY = (previewHeight - margin * 2) / safeHeight;
+  const scale = Math.min(scaleX, scaleY);
+  const scaledWidth = constellationWidth * scale;
+  const scaledHeight = constellationHeight * scale;
+  const offsetX = (previewWidth - scaledWidth) / 2 - bounds.minX * scale;
+  const offsetY = (previewHeight - scaledHeight) / 2 - bounds.minY * scale;
+
+  return sourceStars.map(function(star) {
+    return {
+      id: star.id,
+      x: star.x * scale + offsetX,
+      y: star.y * scale + offsetY,
+      radius: Math.max(3, Math.min(6, star.radius * Math.sqrt(scale)))
+    };
+  });
+}
+
+function drawPreviewBackground(previewContext, width, height) {
+  const gradient = previewContext.createLinearGradient(0, 0, 0, height);
+  gradient.addColorStop(0, "#172044");
+  gradient.addColorStop(0.55, "#0a112b");
+  gradient.addColorStop(1, "#030712");
+
+  previewContext.fillStyle = gradient;
+  previewContext.fillRect(0, 0, width, height);
+
+  const glow = previewContext.createRadialGradient(width * 0.78, height * 0.14, 8, width * 0.78, height * 0.14, width * 0.48);
+  glow.addColorStop(0, "rgba(255, 228, 158, 0.22)");
+  glow.addColorStop(1, "rgba(255, 228, 158, 0)");
+  previewContext.fillStyle = glow;
+  previewContext.fillRect(0, 0, width, height);
+
+  for (let i = 0; i < 38; i++) {
+    const x = (i * 53) % width;
+    const y = (i * 31) % height;
+    const radius = i % 5 === 0 ? 1.4 : 0.8;
+    const opacity = 0.18 + (i % 7) * 0.04;
+
+    previewContext.beginPath();
+    previewContext.arc(x, y, radius, 0, Math.PI * 2);
+    previewContext.fillStyle = "rgba(236, 243, 255, " + opacity + ")";
+    previewContext.fill();
+  }
+}
+
+function drawPreviewLines(previewContext, previewLines, previewStars) {
+  previewLines.forEach(function(line) {
+    const fromStar = previewStars.find(function(star) {
+      return star.id === line.fromId;
+    });
+    const toStar = previewStars.find(function(star) {
+      return star.id === line.toId;
+    });
+
+    if (!fromStar || !toStar) {
+      return;
+    }
+
+    previewContext.beginPath();
+    previewContext.moveTo(fromStar.x, fromStar.y);
+    previewContext.lineTo(toStar.x, toStar.y);
+    previewContext.strokeStyle = "rgba(182, 221, 255, 0.64)";
+    previewContext.lineWidth = 2;
+    previewContext.shadowColor = "rgba(136, 203, 255, 0.8)";
+    previewContext.shadowBlur = 8;
+    previewContext.stroke();
+    previewContext.shadowBlur = 0;
+  });
+}
+
+function drawPreviewStars(previewContext, previewStars) {
+  previewStars.forEach(function(star) {
+    const glow = previewContext.createRadialGradient(star.x, star.y, 1, star.x, star.y, 18);
+    glow.addColorStop(0, "rgba(255, 247, 198, 0.9)");
+    glow.addColorStop(0.38, "rgba(255, 247, 198, 0.38)");
+    glow.addColorStop(1, "rgba(255, 247, 198, 0)");
+
+    previewContext.beginPath();
+    previewContext.arc(star.x, star.y, 18, 0, Math.PI * 2);
+    previewContext.fillStyle = glow;
+    previewContext.fill();
+
+    previewContext.beginPath();
+    previewContext.arc(star.x, star.y, star.radius, 0, Math.PI * 2);
+    previewContext.fillStyle = "#fffdf1";
+    previewContext.shadowColor = "#d9ecff";
+    previewContext.shadowBlur = 10;
+    previewContext.fill();
+    previewContext.shadowBlur = 0;
   });
 }
 
@@ -1135,6 +1355,11 @@ function resetSky() {
 }
 
 function drawSky() {
+  if (appMode === APP_MODE_COLLECTION) {
+    drawConstellationName();
+    return;
+  }
+
   drawNightBackground();
 
   if (appMode === APP_MODE_CREATE) {

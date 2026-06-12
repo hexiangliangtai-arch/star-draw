@@ -27,15 +27,18 @@
         <button id="saveButton" class="button" type="button">保存</button>
       </section>
 
-      <div id="bottomPanel" class="bottom-panel is-hidden">
-        <section id="collectionPanel" class="toolbar-panel is-hidden" aria-label="コレクションパネル">
-          <h2>保存済みコレクション</h2>
-          <div class="collection-section">
-            <p class="group-label">自分の星座</p>
-            <div id="collectionList" class="collection-list"></div>
-          </div>
-        </section>
+      <section id="collectionPanel" class="collection-screen is-hidden" aria-label="星座図書館">
+        <div class="collection-screen-inner">
+          <header class="collection-header">
+            <p class="collection-kicker">My Night Sky Archive</p>
+            <h1>星座図書館</h1>
+            <p>あなたが作った星座たちを読み込んだり、整理できます</p>
+          </header>
+          <div id="collectionList" class="collection-list"></div>
+        </div>
+      </section>
 
+      <div id="bottomPanel" class="bottom-panel is-hidden">
         <section id="mySkyPanel" class="toolbar-panel is-hidden" aria-label="My夜空パネル">
           <h2>My夜空モード</h2>
           <div class="my-sky-mode-actions" aria-label="My夜空操作モード">
